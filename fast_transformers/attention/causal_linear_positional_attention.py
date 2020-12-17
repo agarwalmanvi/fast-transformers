@@ -4,7 +4,8 @@
 # Apoorv Vyas <avyas@idiap.ch>
 #
 
-"""Implement causally masked linear attention."""
+"""Implement causally masked linear attention with positional embeddings added
+in the key space."""
 
 import torch
 from torch.nn import Module
