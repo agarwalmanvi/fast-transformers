@@ -57,7 +57,7 @@ class AttentionLayer(Module):
         self.event_dispatcher = EventDispatcher.get(event_dispatcher)
 
     def forward(self, queries, keys, values, attn_mask, query_lengths,
-                key_lengths):
+                key_lengths, omit_feature_map_draw=False):
         """Apply attention to the passed in queries/keys/values after
         projecting them to multiple heads.
 
@@ -106,7 +106,8 @@ class AttentionLayer(Module):
             values,
             attn_mask,
             query_lengths,
-            key_lengths
+            key_lengths,
+            omit_feature_map_draw=omit_feature_map_draw
         ).view(N, L, -1)
 
         # Project the output and return

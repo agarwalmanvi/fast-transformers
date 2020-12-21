@@ -53,6 +53,7 @@ class CausalLinearAttention(Module):
         )
         self.eps = eps
         self.event_dispatcher = EventDispatcher.get(event_dispatcher)
+        self.has_feature_map_init = False
 
     def _make_sizes_compatible(self, Q, K):
         """Either slice or pad K in case that the sizes do not match between Q
@@ -68,10 +69,13 @@ class CausalLinearAttention(Module):
         if L > S:
             return Q, torch.cat([K, K.new_zeros(N, L-S, H, E)], dim=1)
 
-    def forward(self, queries, keys, values, attn_mask, query_lengths,
-                key_lengths):
+    def forward(self, queries, keys, values, queries_pos, keys_pos, attn_mask,
+                query_lengths, key_lengths, omit_feature_map_draw=False):         
         # Apply the feature map to the queries and keys
-        self.feature_map.new_feature_map(queries.device)
+        if not omit_feature_map_draw or not self.has_feature_map_init:
+            self.feature_map.new_feature_map(queries.device)
+            self.has_feature_map_init = True
+
         Q = self.feature_map.forward_queries(queries)
         K = self.feature_map.forward_keys(keys)
 

@@ -16,7 +16,7 @@ from ..events import EventDispatcher
 from ..feature_maps import elu_feature_map
 
 
-class LinearAttention(Module):
+class LinearPositionalAttention(Module):
     """Implement unmasked attention using dot product of feature maps in
     O(N D^2) complexity.
 
@@ -45,7 +45,7 @@ class LinearAttention(Module):
     """
     def __init__(self, query_dimensions, feature_map=None, eps=1e-6,
                  event_dispatcher=""):
-        super(LinearAttention, self).__init__()
+        super(LinearPositionalAttention, self).__init__()
         self.feature_map = (
             feature_map(query_dimensions) if feature_map else
             elu_feature_map(query_dimensions)
@@ -64,7 +64,7 @@ class LinearAttention(Module):
         # Apply the key padding mask and make sure that the attn_mask is
         # all_ones
         if not attn_mask.all_ones:
-            raise RuntimeError(("LinearAttention does not support arbitrary "
+            raise RuntimeError(("LinearPositionalAttention does not support arbitrary "
                                 "attention masks"))
         K = K * key_lengths.float_matrix[:, :, None, None]
         Pk = Pk * key_lengths.float_matrix[:, :, None, None]
@@ -91,7 +91,7 @@ class LinearAttention(Module):
 # Register the attention implementation so that it becomes available in our
 # builders
 AttentionRegistry.register(
-    "linear", LinearAttention,
+    "linear-positional", LinearPositionalAttention,
     [
         ("query_dimensions", Int),
         ("feature_map", Optional(Callable)),

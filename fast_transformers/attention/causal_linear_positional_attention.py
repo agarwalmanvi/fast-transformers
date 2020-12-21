@@ -25,7 +25,7 @@ def causal_linear(Q, K, V):
     return V_new.permute(0,2,1,3).contiguous()
 
 
-class CausalLinearAttention(Module):
+class CausalLinearPositionalAttention(Module):
     """Implement causally masked attention using dot product of feature maps in
     O(N D^2) complexity.
 
@@ -47,13 +47,14 @@ class CausalLinearAttention(Module):
     """
     def __init__(self, query_dimensions, feature_map=None, eps=1e-6,
                  event_dispatcher=""):
-        super(CausalLinearAttention, self).__init__()
+        super(CausalLinearPositionalAttention, self).__init__()
         self.feature_map = (
             feature_map(query_dimensions) if feature_map else
             elu_feature_map(query_dimensions)
         )
         self.eps = eps
         self.event_dispatcher = EventDispatcher.get(event_dispatcher)
+        self.has_feature_map_init = False
 
     def _make_sizes_compatible(self, Q, K):
         """Either slice or pad K in case that the sizes do not match between Q
@@ -70,9 +71,12 @@ class CausalLinearAttention(Module):
             return Q, torch.cat([K, K.new_zeros(N, L-S, H, E)], dim=1)
 
     def forward(self, queries, keys, values, queries_pos, keys_pos, attn_mask,
-                query_lengths, key_lengths):
+                query_lengths, key_lengths, omit_feature_map_draw=False):      
         # Apply the feature map to the queries and keys
-        self.feature_map.new_feature_map(queries.device)
+        if not omit_feature_map_draw or not self.has_feature_map_init:
+            self.feature_map.new_feature_map(queries.device)
+            self.has_feature_map_init = True
+
         Q = self.feature_map.forward_queries(queries)
         K = self.feature_map.forward_keys(keys)
         Pq, Pk = queries_pos, keys_pos
@@ -110,7 +114,7 @@ class CausalLinearAttention(Module):
 # Register the attention implementation so that it becomes available in our
 # builders
 AttentionRegistry.register(
-    "causal-linear", CausalLinearAttention,
+    "causal-linear-positional", CausalLinearPositionalAttention,
     [
         ("query_dimensions", Int),
         ("feature_map", Optional(Callable)),
