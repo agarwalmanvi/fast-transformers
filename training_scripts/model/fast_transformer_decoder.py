@@ -42,7 +42,7 @@ class FastTransformerDecoder(nn.Module):
         )
       )
 
-  def forward(self, x, lengths=None, omit_qr=False):
+  def forward(self, x, lengths=None, omit_feature_map_draw=False):
     attn_mask = TriangularCausalMask(x.size(1), device=device)
 
     if lengths is not None:
@@ -59,7 +59,7 @@ class FastTransformerDecoder(nn.Module):
         out, 
         attn_mask=attn_mask, 
         length_mask=length_mask, 
-        omit_qr=omit_qr
+        omit_feature_map_draw=omit_feature_map_draw
       )
 
     return out
