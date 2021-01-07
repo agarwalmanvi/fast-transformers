@@ -35,14 +35,14 @@ class FastTransformerDecoder(nn.Module):
       self.decoder_layers.append(
         TransformerEncoderLayer(
           attention=self.attention_layers[l],
-          d_model=d_model, 
-          d_ff=d_ff, 
-          dropout=dropout, 
+          d_model=d_model,
+          d_ff=d_ff,
+          dropout=dropout,
           activation=activation
         )
       )
 
-  def forward(self, x, lengths=None, omit_feature_map_draw=False):
+  def forward(self, x, lengths=None, attn_kwargs=None):
     attn_mask = TriangularCausalMask(x.size(1), device=device)
 
     if lengths is not None:
@@ -56,10 +56,10 @@ class FastTransformerDecoder(nn.Module):
     for l in range(self.n_layer):
       # print (out.size())
       out = self.decoder_layers[l](
-        out, 
-        attn_mask=attn_mask, 
-        length_mask=length_mask, 
-        omit_feature_map_draw=omit_feature_map_draw
+        out,
+        attn_mask=attn_mask,
+        length_mask=length_mask,
+        attn_kwargs=attn_kwargs
       )
 
     return out
