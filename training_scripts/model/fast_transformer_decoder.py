@@ -1,3 +1,4 @@
+from confugue import configurable
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -10,6 +11,8 @@ from fast_transformers.masking import TriangularCausalMask, LengthMask
 from fast_transformers.attention import CausalLinearAttention, AttentionLayer
 from fast_transformers.feature_maps import Favor
 
+
+@configurable
 class FastTransformerDecoder(nn.Module):
   def __init__(self, n_layer, n_head, d_model, d_ff, dropout=0.1, activation='relu'):
     super(FastTransformerDecoder, self).__init__()
@@ -22,7 +25,10 @@ class FastTransformerDecoder(nn.Module):
 
     att_builder = AttentionBuilder.from_kwargs(
       query_dimensions=d_model // n_head,
-      feature_map=Favor.factory(n_dims=d_model // n_head)
+      feature_map=self._cfg['feature_map'].configure(
+        Favor.factory,
+        n_dims=d_model // n_head
+      )
     )
 
     self.attention_layers = [
