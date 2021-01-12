@@ -69,8 +69,8 @@ class CausalLinearAttention(Module):
         if L > S:
             return Q, torch.cat([K, K.new_zeros(N, L-S, H, E)], dim=1)
 
-    def forward(self, queries, keys, values, queries_pos, keys_pos, attn_mask,
-                query_lengths, key_lengths, omit_feature_map_draw=False):         
+    def forward(self, queries, keys, values, attn_mask,
+                query_lengths, key_lengths, omit_feature_map_draw=False):
         # Apply the feature map to the queries and keys
         if not omit_feature_map_draw or not self.has_feature_map_init:
             self.feature_map.new_feature_map(queries.device)
