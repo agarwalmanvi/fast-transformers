@@ -201,8 +201,15 @@ def train(
 
 class AugmentedDataset(muspy.Dataset):
 
-  def __init__(self, dataset: muspy.Dataset, seed: int):
+  def __init__(self, dataset: muspy.Dataset,
+               max_harm_tracks: int = None,
+               harm_tracks_shuffle_prob: float = 0.4,
+               track_drop_prob: float = 0.2,
+               seed: int = 0):
     self.dataset = dataset
+    self.max_harm_tracks = max_harm_tracks
+    self.harm_tracks_shuffle_prob = harm_tracks_shuffle_prob
+    self.track_drop_prob = track_drop_prob
     self.rng = np.random.default_rng(seed)
 
   def __getitem__(self, index) -> muspy.Music:
@@ -212,17 +219,23 @@ class AugmentedDataset(muspy.Dataset):
     return len(self.dataset)
 
   def _augment(self, music: muspy.Music) -> muspy.Music:
-    #music = copy.deepcopy(music)
     if [tr.name for tr in music.tracks] != [
         'BB Bass', 'BB Drums', 'BB Guitar', 'BB Piano', 'BB Strings']:
       print('Warning: unexpected track names', *[tr.name for tr in music.tracks])
       print('Music:', music)
 
+    harm_track_ids = [2, 3, 4]  # Guitar, Piano, Strinfs
+
     # Shuffle Guitar, Piano, Synth tracks randomly
-    if self.rng.random() < 0.4:
-      harm_tracks = music.tracks[2:]
-      self.rng.shuffle(harm_tracks)
-      music.tracks[2:] = list(harm_tracks)
+    if self.rng.random() < self.harm_tracks_shuffle_prob:
+      self.rng.shuffle(harm_track_ids)
+
+    # Keep only the specified number of harmonic tracks; prefer non-empty ones
+    if self.max_harm_tracks is not None:
+      harm_track_ids.sort(key=lambda i: 0 if music.tracks[i].notes else 1)
+      harm_track_ids = harm_track_ids[:self.max_harm_tracks]
+
+    music.tracks[2:] = [music.tracks[i] for i in harm_track_ids]
 
     # Cut off up to 64 bars at the beginning (4 at a time)
     if self.rng.random() < 0.25:
@@ -237,7 +250,7 @@ class AugmentedDataset(muspy.Dataset):
     nonempty_tracks = [tr for tr in music.tracks if tr.notes]
     self.rng.shuffle(nonempty_tracks)
     for track in nonempty_tracks[1:]:
-      if self.rng.random() < 0.2:
+      if self.rng.random() < self.track_drop_prob:
         track.notes.clear()
 
     # Transpose randomly
@@ -250,7 +263,7 @@ class AugmentedDataset(muspy.Dataset):
         elif note.pitch > 127:
           note.pitch -= 12
 
-    assert len(music.tracks) == 5
+    assert len(music.tracks) == 2 + self.max_harm_tracks
 
     return music
 
@@ -311,7 +324,8 @@ def main():
     return encoded
 
   data_train = muspy.MusicDataset(cfg.get('train_data_path'))
-  data_train = AugmentedDataset(data_train, seed=seed)
+  data_train = cfg['data_augmentation'].configure(
+    AugmentedDataset, dataset=data_train, seed=seed)
   data_train_pt = data_train.to_pytorch_dataset(factory=encode)
 
   model = cfg['model'].configure(
