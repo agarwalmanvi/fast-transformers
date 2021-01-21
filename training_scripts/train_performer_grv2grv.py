@@ -241,8 +241,8 @@ class AugmentedDataset(muspy.Dataset):
     music.tracks[2:] = [music.tracks[i] for i in harm_track_ids]
 
     # Cut off up to 64 bars at the beginning (4 at a time)
-    if self.rng.random() < 0.25:
-      total_bars = music.get_end_time() // music.resolution // 4
+    total_bars = music.get_end_time() // music.resolution // 4
+    if self.rng.random() < 0.25 and total_bars >= 8:
       offset = music.resolution * 4 * 4 * int(self.rng.integers(1, min(64, total_bars // 2) // 4, endpoint=True))
       music.adjust_time(lambda t: t - offset)
       # Remove notes manually because remove_invalid() is buggy
@@ -250,11 +250,11 @@ class AugmentedDataset(muspy.Dataset):
         track.notes = [n for n in track.notes if n.end >= 0]
 
     # Drop tracks at random, but keep at least one non-empty
-    nonempty_tracks = [tr for tr in music.tracks if tr.notes]
-    self.rng.shuffle(nonempty_tracks)
-    for track in nonempty_tracks[1:]:
+    nonempty_track_ids = [i for i, tr in enumerate(music.tracks) if tr.notes]
+    self.rng.shuffle(nonempty_track_ids)
+    for i in nonempty_track_ids[1:]:
       if self.rng.random() < self.track_drop_prob:
-        track.notes.clear()
+        music.tracks[i].notes.clear()
 
     # Transpose randomly
     music.transpose(self.rng.integers(-5, 6, endpoint=True))
