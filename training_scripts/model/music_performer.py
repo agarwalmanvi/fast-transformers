@@ -21,7 +21,11 @@ class MusicPerformer(nn.Module):
     self.token_emb = TokenEmbedding(n_token, d_embed, d_model)
     self.d_embed = d_embed
 
-    self.pe = PositionalEncoding(d_embed, max_pos=max_len)
+    if self._cfg.get('add_positional_encoding', True):
+      self.pe = self._cfg['positional_encoding'].configure(
+          PositionalEncoding, d_embed=d_embed, max_pos=max_len)
+    else:
+      self.pe = None
     self.dec_out_proj = nn.Linear(d_model, n_token)
 
     self.transformer_decoder = self._cfg['decoder'].configure(
@@ -35,7 +39,9 @@ class MusicPerformer(nn.Module):
 
   def forward(self, x, attn_kwargs=None):
     x_emb = self.token_emb(x)
-    x_inp = self.emb_dropout(x_emb) + self.pe(x.size(1)).permute(1, 0, 2)
+    x_inp = self.emb_dropout(x_emb)
+    if self.pe:
+      x_inp = x_inp + self.pe(x.size(1)).permute(1, 0, 2)
 
     dec_out = self.transformer_decoder(x_inp, attn_kwargs=attn_kwargs)
     dec_logits = self.dec_out_proj(dec_out)

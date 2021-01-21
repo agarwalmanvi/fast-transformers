@@ -14,7 +14,8 @@ from fast_transformers.feature_maps import Favor
 
 @configurable
 class FastTransformerDecoder(nn.Module):
-  def __init__(self, n_layer, n_head, d_model, d_ff, dropout=0.1, activation='relu'):
+  def __init__(self, n_layer, n_head, d_model, d_ff, dropout=0.1, activation='relu',
+               share_pe=False):
     super(FastTransformerDecoder, self).__init__()
     self.n_layer = n_layer
     self.n_head = n_head
@@ -22,17 +23,34 @@ class FastTransformerDecoder(nn.Module):
     self.d_ff = d_ff
     self.dropout = dropout
     self.activation = activation
+    self.share_pe = share_pe
 
-    att_builder = AttentionBuilder.from_kwargs(
-      query_dimensions=d_model // n_head,
-      feature_map=self._cfg['feature_map'].configure(
-        Favor.factory,
-        n_dims=d_model // n_head
+    self.positional_encoders = None
+    if 'positional_encoder' in self._cfg:
+      make_pe = self._cfg['positional_encoder'].bind(
+        num_heads=n_head
       )
-    )
+      if share_pe:
+        self.positional_encoders = n_layer * [make_pe()]
+      else:
+        self.positional_encoders = [
+          make_pe() for _ in range(n_layer)
+        ]
 
     self.attention_layers = [
-        AttentionLayer(att_builder.get("causal-linear"), d_model, n_head)
+        AttentionLayer(
+          self._cfg['attention'].configure(
+            CausalLinearAttention,
+            query_dimensions=d_model // n_head,
+            feature_map=self._cfg['feature_map'].configure(
+              Favor.factory,
+              n_dims=d_model // n_head
+            )
+          ),
+          d_model, n_head,
+          positional_encoder=(
+            self.positional_encoders[l]
+            if self.positional_encoders else None))
         for l in range(n_layer)
     ]
 
@@ -57,6 +75,11 @@ class FastTransformerDecoder(nn.Module):
       length_mask = None
 
     # print ('[in decoder]', seg_emb.size(), x.size())
+
+    if self.positional_encoders and self.training:
+      positional_encoders = self.positional_encoders[:1 if self.share_pe else None]
+      for pe in positional_encoders:
+        pe.reset(x.size(1))
 
     out = x
     for l in range(self.n_layer):

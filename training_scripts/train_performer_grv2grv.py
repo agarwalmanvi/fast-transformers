@@ -20,6 +20,9 @@ from training_scripts.model.music_performer import MusicPerformer
 from training_scripts.event_processor import BeatShiftTiming, EventRepresentationProcessor
 
 
+DEVICE = 'cuda'
+
+
 def log_epoch(log_file, log_data, is_init=False):
   if is_init:
     with open(log_file, 'w') as f:
@@ -68,7 +71,7 @@ def train(
         print('Warning: length', batch.shape[1], 'at step', train_steps)
         continue
 
-      batch = batch.cuda()
+      batch = batch.to(DEVICE)
       batch_dec_inp = batch[:, :-1]
       batch_dec_tgt = batch[:, 1:]
 
@@ -124,7 +127,7 @@ def train(
 
             losses = []
             for batch in dloader:
-              batch = batch.cuda()
+              batch = batch.to(DEVICE)
               batch_dec_inp = batch[:, :-1]
               batch_dec_tgt = batch[:, 1:]
               dec_logits = model(batch_dec_inp)
@@ -331,7 +334,7 @@ def main():
   model = cfg['model'].configure(
     MusicPerformer,
     n_token=len(representation.vocab),
-  ).cuda()
+  ).to(DEVICE)
 
   train_loader = cfg['data_loader'].configure(
     DataLoader,

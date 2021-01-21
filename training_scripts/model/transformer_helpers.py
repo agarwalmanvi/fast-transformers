@@ -11,7 +11,7 @@ def weight_init_normal(weight, normal_std):
 
 def bias_init(bias):
   nn.init.constant_(bias, 0.0)
-  
+
 def weights_init(m):
     classname = m.__class__.__name__
     # print ('[{}] initializing ...'.format(classname))
@@ -34,10 +34,12 @@ def weights_init(m):
 
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, d_embed, max_pos=20480):
+
+    def __init__(self, d_embed, max_pos=20480, learnable=False):
         super(PositionalEncoding, self).__init__()
         self.d_embed = d_embed
         self.max_pos = max_pos
+        self.learnable = learnable
 
         pe = torch.zeros(max_pos, d_embed)
         position = torch.arange(0, max_pos, dtype=torch.float).unsqueeze(1)
@@ -45,7 +47,11 @@ class PositionalEncoding(nn.Module):
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0).transpose(0, 1)
-        self.register_buffer('pe', pe)
+
+        if learnable:
+          self.register_parameter('pe', nn.Parameter(pe))
+        else:
+          self.register_buffer('pe', pe)
 
     def forward(self, seq_len, bsz=None):
         pos_encoding = self.pe[:seq_len, :]
@@ -54,6 +60,7 @@ class PositionalEncoding(nn.Module):
           pos_encoding = pos_encoding.expand(seq_len, bsz, -1)
 
         return pos_encoding
+
 
 class TokenEmbedding(nn.Module):
   def __init__(self, n_token, d_embed, d_proj):
