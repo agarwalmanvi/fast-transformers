@@ -1,4 +1,5 @@
 from confugue import configurable
+import spe
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -15,7 +16,7 @@ from fast_transformers.feature_maps import Favor
 @configurable
 class FastTransformerDecoder(nn.Module):
   def __init__(self, n_layer, n_head, d_model, d_ff, dropout=0.1, activation='relu',
-               share_pe=False):
+               share_pe=False, share_spe_filter=False):
     super(FastTransformerDecoder, self).__init__()
     self.n_layer = n_layer
     self.n_head = n_head
@@ -24,18 +25,34 @@ class FastTransformerDecoder(nn.Module):
     self.dropout = dropout
     self.activation = activation
     self.share_pe = share_pe
+    self.share_spe_filter = share_spe_filter
 
-    self.positional_encoders = None
+    self._spe = None
+    self._spe_filters = None
     if 'positional_encoder' in self._cfg:
       make_pe = self._cfg['positional_encoder'].bind(
         num_heads=n_head
       )
       if share_pe:
-        self.positional_encoders = n_layer * [make_pe()]
+        self.spe = make_pe()  # Register as a module (only once!)
+        self._spe = n_layer * [self.spe]
       else:
-        self.positional_encoders = [
+        # Make an SPE encoder for each layer and register them all
+        self.spe = nn.ModuleList([
           make_pe() for _ in range(n_layer)
-        ]
+        ])
+        self._spe = list(self.spe)
+
+      make_filter = self._cfg['spe_filter'].bind(spe.SPEFilter)
+      if share_spe_filter:
+        self.spe_filters = make_filter(code_shape=self._spe[0].code_shape)
+        self._spe_filters = n_layer * [self.spe_filters]
+      else:
+        # Make a filter for each layer, register them
+        self.spe_filters = nn.ModuleList([
+          make_filter(code_shape=pe.code_shape) for pe in self._spe
+        ])
+        self._spe_filters = list(self.spe_filters)
 
     self.attention_layers = [
         AttentionLayer(
@@ -48,9 +65,10 @@ class FastTransformerDecoder(nn.Module):
             )
           ),
           d_model, n_head,
+          # Do not register as submodules of the layer
           positional_encoder=(
-            self.positional_encoders[l]
-            if self.positional_encoders else None))
+            self._spe_filters[l].__call__
+            if self._spe_filters else None))
         for l in range(n_layer)
     ]
 
@@ -74,21 +92,22 @@ class FastTransformerDecoder(nn.Module):
     else:
       length_mask = None
 
-    # print ('[in decoder]', seg_emb.size(), x.size())
+    attn_kwargs = dict(attn_kwargs) if attn_kwargs else {}
 
-    if self.positional_encoders and self.training:
-      positional_encoders = self.positional_encoders[:1 if self.share_pe else None]
-      for pe in positional_encoders:
-        pe.reset(x.size(1))
+    if self._spe and self.share_pe:
+        attn_kwargs['pos_code'] = self.spe(x.shape[:-1])
 
     out = x
     for l in range(self.n_layer):
-      # print (out.size())
+      layer_attn_kwargs = dict(attn_kwargs)
+      if self._spe and not self.share_pe:
+        layer_attn_kwargs['pos_code'] = self.spe[l](x.shape[:-1])
+
       out = self.decoder_layers[l](
         out,
         attn_mask=attn_mask,
         length_mask=length_mask,
-        attn_kwargs=attn_kwargs
+        attn_kwargs=layer_attn_kwargs
       )
 
     return out

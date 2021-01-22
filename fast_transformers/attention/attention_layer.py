@@ -59,7 +59,7 @@ class AttentionLayer(Module):
         self.event_dispatcher = EventDispatcher.get(event_dispatcher)
 
     def forward(self, queries, keys, values, attn_mask, query_lengths,
-                key_lengths, **kwargs):
+                key_lengths, pos_code=None, **kwargs):
         """Apply attention to the passed in queries/keys/values after
         projecting them to multiple heads.
 
@@ -83,6 +83,7 @@ class AttentionLayer(Module):
                            many queries each sequence in the batch consists of
             key_lengths: An implementation of BaseMask that encodes how
                          many queries each sequence in the batch consists of
+            pos_code: The position code to pass to the positional encoder.
 
         Returns
         -------
@@ -99,7 +100,7 @@ class AttentionLayer(Module):
         values = self.value_projection(values).view(N, S, H, -1)
 
         if self.positional_encoder:
-            queries, keys = self.positional_encoder(queries, keys)
+            queries, keys = self.positional_encoder(queries, keys, pos_code)
 
         # Let the world know of the qkv
         self.event_dispatcher.dispatch(QKVEvent(self, queries, keys, values))
