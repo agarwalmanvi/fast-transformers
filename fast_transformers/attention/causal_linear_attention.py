@@ -40,18 +40,23 @@ class CausalLinearAttention(Module):
                      last dimension of a tensor (default: elu(x)+1)
         eps: float, a small number to ensure the numerical stability of the
              denominator (default: 1e-6)
+        arbitrary_mask: bool, whether to allow arbitrary masks; if True and
+                        the mask is not an all-ones mask, an inefficient
+                        implementation computing the full attention matrix
+                        will be used
         event_dispatcher: str or EventDispatcher instance to be used by this
                           module for dispatching events (default: the default
                           global dispatcher)
     """
     def __init__(self, query_dimensions, feature_map=None, eps=1e-6,
-                 event_dispatcher=""):
+                 arbitrary_mask=False, event_dispatcher=""):
         super(CausalLinearAttention, self).__init__()
         self.feature_map = (
             feature_map(query_dimensions) if feature_map else
             elu_feature_map(query_dimensions)
         )
         self.eps = eps
+        self.arbitrary_mask = arbitrary_mask
         self.event_dispatcher = EventDispatcher.get(event_dispatcher)
         self.has_feature_map_init = False
 
@@ -79,16 +84,32 @@ class CausalLinearAttention(Module):
         Q = self.feature_map.forward_queries(queries)
         K = self.feature_map.forward_keys(keys)
 
-        # Apply the key padding mask and make sure the attn_mask is a
-        # lower triangular causal mask
-        if not attn_mask.lower_triangular:
-            raise RuntimeError(("CausalLinearAttention only supports full "
-                                "lower triangular masks"))
+        # Apply the key padding mask
         K = K * key_lengths.float_matrix[:, :, None, None]
 
         # Ensure that Q and K have compatible sizes for the following
         # computations, namely L == S
         Q, K = self._make_sizes_compatible(Q, K)
+
+        # Make sure the attn_mask is causal or use the inefficient version
+        if not attn_mask.lower_triangular:
+            if not self.arbitrary_mask:
+                raise RuntimeError("CausalLinearAttention does not support "
+                                   "arbitrary attention masks by default")
+
+            # The following is like FullAttention, but with simple
+            # normalization instead of softmax
+            QK = torch.einsum("nlhe,nshe->nhls", queries, keys)
+            QK = QK * attn_mask.float_matrix
+
+            # Normalize
+            Z = 1 / (QK.sum(dim=-1) + self.eps)
+            QK = QK * Z[:, :, :, None]
+
+            # Compute the result
+            V = torch.einsum("nhls,nshd->nlhd", QK, values)
+
+            return V.contiguous()
 
         # TODO: Shall we divide the Q and K with a relatively large number to
         #       avoid numerical instabilities in computing the denominator?
