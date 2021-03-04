@@ -13,9 +13,11 @@ and any layer that implements the same interface can substitute for the
 attention layer.
 """
 
+import torch
 from torch.nn import Linear, Module
 
 from ..events import EventDispatcher, QKVEvent
+from ..masking import FullMask, LengthMask
 
 
 class AttentionLayer(Module):
@@ -59,7 +61,7 @@ class AttentionLayer(Module):
         self.event_dispatcher = EventDispatcher.get(event_dispatcher)
 
     def forward(self, queries, keys, values, attn_mask, query_lengths,
-                key_lengths, pos_code=None, **kwargs):
+                key_lengths, pos_code=None, cache=None, **kwargs):
         """Apply attention to the passed in queries/keys/values after
         projecting them to multiple heads.
 
@@ -89,6 +91,18 @@ class AttentionLayer(Module):
         -------
             The new value for each query as a tensor of shape (N, L, D).
         """
+        # Cache
+        Lc, Sc = 0, 0
+        if cache is not None:
+            if self not in cache:
+                cache[self] = {}
+            if 'outputs' in cache[self]:
+                # Remove the cached positions
+                Lc = cache[self]['outputs'].shape[1]
+                Sc = cache[self]['keys'].shape[1]
+                queries = queries[:, Lc:]
+                keys, values = keys[:, Sc:], values[:, Sc:]
+
         # Extract the dimensions into local variables
         N, L, _ = queries.shape
         _, S, _ = keys.shape
@@ -99,8 +113,27 @@ class AttentionLayer(Module):
         keys = self.key_projection(keys).view(N, S, H, -1)
         values = self.value_projection(values).view(N, S, H, -1)
 
-        if self.positional_encoder:
-            queries, keys = self.positional_encoder(queries, keys, pos_code)
+        if cache is not None and cache[self]:
+            # Apply positional encoding to new positions
+            if self.positional_encoder:
+                queries, keys = self.positional_encoder(
+                    queries, keys, (pos_code[0][:, Lc:], pos_code[1][:, Sc:]))
+
+            # Restore the cached keys and values
+            keys = torch.cat([cache[self]['keys'], keys], dim=1)
+            values = torch.cat([cache[self]['values'], values], dim=1)
+            S = keys.shape[1]
+
+            # Adjust the masks for queries
+            attn_mask = FullMask(attn_mask.bool_matrix[-L:, :])
+            query_lengths = LengthMask(
+                query_lengths.lengths - Lc,
+                device=query_lengths.lengths.device)
+        else:
+            # Apply positional encoding
+            if self.positional_encoder:
+                queries, keys = self.positional_encoder(
+                    queries, keys, pos_code)
 
         # Let the world know of the qkv
         self.event_dispatcher.dispatch(QKVEvent(self, queries, keys, values))
@@ -116,5 +149,16 @@ class AttentionLayer(Module):
             **kwargs
         ).view(N, L, -1)
 
-        # Project the output and return
-        return self.out_projection(new_values)
+        # Project the output
+        outputs = self.out_projection(new_values)
+
+        if cache is not None:
+            if cache[self]:
+                # Add the cached outputs
+                outputs = torch.cat([cache[self]['outputs'], outputs], dim=1)
+
+            # Update the cache
+            for name in ['keys', 'values', 'outputs']:
+                cache[self][name] = locals()[name]
+
+        return outputs
