@@ -92,7 +92,7 @@ class AttentionLayer(Module):
             The new value for each query as a tensor of shape (N, L, D).
         """
         # Cache
-        Lc, Sc = 0, 0
+        Lc, Sc = 0, 0  # The lengths of cached queries and keys
         if cache is not None:
             if self not in cache:
                 cache[self] = {}
@@ -125,7 +125,7 @@ class AttentionLayer(Module):
             S = keys.shape[1]
 
             # Adjust the masks for queries
-            attn_mask = FullMask(attn_mask.bool_matrix[-L:, :])
+            attn_mask = FullMask(attn_mask.bool_matrix[Lc:, :])
             query_lengths = LengthMask(
                 query_lengths.lengths - Lc,
                 device=query_lengths.lengths.device)
