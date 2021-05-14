@@ -92,14 +92,14 @@ class CausalLinearAttention(Module):
         Q, K = self._make_sizes_compatible(Q, K)
 
         # Make sure the attn_mask is causal or use the inefficient version
-        if not attn_mask.lower_triangular:
+        if not getattr(attn_mask, '_lower_triangular', False):
             if not self.arbitrary_mask:
                 raise RuntimeError("CausalLinearAttention does not support "
                                    "arbitrary attention masks by default")
 
             # The following is like FullAttention, but with simple
             # normalization instead of softmax
-            QK = torch.einsum("nlhe,nshe->nhls", queries, keys)
+            QK = torch.einsum("nlhe,nshe->nhls", Q, K)
             QK = QK * attn_mask.float_matrix
 
             # Normalize
