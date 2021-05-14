@@ -52,7 +52,7 @@ class TransformerEncoderLayer(Module):
         self.activation = F.relu if activation == "relu" else F.gelu
         self.event_dispatcher = EventDispatcher.get(event_dispatcher)
 
-    def forward(self, x, attn_mask=None, length_mask=None):
+    def forward(self, x, attn_mask=None, length_mask=None, cache=None, attn_kwargs=None):
         """Apply the transformer encoder to the input x.
 
         Arguments
@@ -78,7 +78,9 @@ class TransformerEncoderLayer(Module):
             x, x, x,
             attn_mask=attn_mask,
             query_lengths=length_mask,
-            key_lengths=length_mask
+            cache=cache,
+            key_lengths=length_mask,
+            **attn_kwargs or {}
         ))
 
         # Run the fully connected part of the layer
@@ -112,7 +114,7 @@ class TransformerEncoder(Module):
         self.norm = norm_layer
         self.event_dispatcher = EventDispatcher.get(event_dispatcher)
 
-    def forward(self, x, attn_mask=None, length_mask=None):
+    def forward(self, x, attn_mask=None, length_mask=None, attn_kwargs=None):
         """Apply all transformer encoder layers to the input x.
 
         Arguments
@@ -135,7 +137,7 @@ class TransformerEncoder(Module):
 
         # Apply all the transformers
         for layer in self.layers:
-            x = layer(x, attn_mask=attn_mask, length_mask=length_mask)
+            x = layer(x, attn_mask=attn_mask, length_mask=length_mask, attn_kwargs=attn_kwargs)
 
         # Apply the normalization if needed
         if self.norm is not None:

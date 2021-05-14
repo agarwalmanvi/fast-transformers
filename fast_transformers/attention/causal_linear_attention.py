@@ -75,12 +75,29 @@ class CausalLinearAttention(Module):
         Q = self.feature_map.forward_queries(queries)
         K = self.feature_map.forward_keys(keys)
 
-        # Apply the key padding mask and make sure the attn_mask is a
-        # lower triangular causal mask
-        if not attn_mask.lower_triangular:
-            raise RuntimeError(("CausalLinearAttention only supports full "
-                                "lower triangular masks"))
-        K = K * key_lengths.float_matrix[:, :, None, None]
+        # Make sure the attn_mask is causal or use the inefficient version
+        # Check for the private attribute first, otherwise the check is very slow
+        # Also ignore key mask for speedup
+        if not getattr(attn_mask, "_lower_triangular", False):
+            if self.training and not attn_mask.lower_triangular:
+                raise RuntimeError("CausalLinearAttention does not support "
+                                   "arbitrary attention masks when training")
+
+            # The following is like FullAttention, but with simple
+            # normalization instead of softmax
+            QK = torch.einsum("nlhe,nshe->nhls", Q, K)
+            QK *= attn_mask.float_matrix
+
+            # Compute the normalizers
+            Z = 1 / (QK.sum(dim=-1) + self.eps)
+
+            # Compute the unnormalized result
+            V = torch.einsum("nhls,nshd,nhl->nlhd", QK, values, Z)
+
+            return V.contiguous()
+
+        # Apply the key padding mask
+        K *= key_lengths.float_matrix[:, :, None, None]
 
         # Ensure that Q and K have compatible sizes for the following
         # computations, namely L == S
