@@ -61,7 +61,7 @@ class AttentionLayer(Module):
         self.event_dispatcher = EventDispatcher.get(event_dispatcher)
 
     def forward(self, queries, keys, values, attn_mask, query_lengths,
-                key_lengths, cache=None):
+                key_lengths, pos_code=None, cache=None):
         """Apply attention to the passed in queries/keys/values after
         projecting them to multiple heads.
 
@@ -85,6 +85,7 @@ class AttentionLayer(Module):
                            many queries each sequence in the batch consists of
             key_lengths: An implementation of BaseMask that encodes how
                          many queries each sequence in the batch consists of
+            pos_code: The position code to pass to the positional encoder.
 
         Returns
         -------
