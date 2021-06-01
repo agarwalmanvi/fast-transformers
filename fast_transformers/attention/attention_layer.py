@@ -43,7 +43,8 @@ class AttentionLayer(Module):
                           global dispatcher)
     """
     def __init__(self, attention, d_model, n_heads, d_keys=None,
-                 d_values=None, event_dispatcher=""):
+                 d_values=None, positional_encoder=None,
+                 event_dispatcher=""):
         super(AttentionLayer, self).__init__()
 
         # Fill d_keys and d_values
@@ -56,6 +57,7 @@ class AttentionLayer(Module):
         self.value_projection = Linear(d_model, d_values * n_heads)
         self.out_projection = Linear(d_values * n_heads, d_model)
         self.n_heads = n_heads
+        self.positional_encoder = positional_encoder
         self.event_dispatcher = EventDispatcher.get(event_dispatcher)
 
     def forward(self, queries, keys, values, attn_mask, query_lengths,
@@ -111,10 +113,10 @@ class AttentionLayer(Module):
         values = self.value_projection(values).view(N, S, H, -1)
 
         if cache is not None and cache[self]:
-            # # Apply positional encoding to new positions
-            # if self.positional_encoder:
-            #     queries, keys = self.positional_encoder(
-            #         queries, keys, (pos_code[0][:, Lc:], pos_code[1][:, Sc:]))
+            # Apply positional encoding to new positions
+            if self.positional_encoder:
+                queries, keys = self.positional_encoder(
+                    queries, keys, (pos_code[0][:, Lc:], pos_code[1][:, Sc:]))
 
             # Restore the cached keys and values
             keys = torch.cat([cache[self]['keys'], keys], dim=1)
@@ -127,11 +129,10 @@ class AttentionLayer(Module):
                 query_lengths.lengths - Lc,
                 device=query_lengths.lengths.device)
         else:
-            pass
-            # # Apply positional encoding
-            # if self.positional_encoder:
-            #     queries, keys = self.positional_encoder(
-            #         queries, keys, pos_code)
+            # Apply positional encoding
+            if self.positional_encoder:
+                queries, keys = self.positional_encoder(
+                    queries, keys, pos_code)
 
         # Let the world know of the qkv
         self.event_dispatcher.dispatch(QKVEvent(self, queries, keys, values))
