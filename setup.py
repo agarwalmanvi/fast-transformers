@@ -29,7 +29,10 @@ except ImportError as e:
 @lru_cache(None)
 def cuda_toolkit_available():
     try:
-        call(["nvcc"], stdout=DEVNULL, stderr=DEVNULL)
+        # use for cluster
+        call(["/usr/local/cuda/bin/nvcc"], stdout=DEVNULL, stderr=DEVNULL)
+        # use for local
+        # call(["nvcc"], stdout=DEVNULL, stderr=DEVNULL)
         return True
     except FileNotFoundError:
         return False
