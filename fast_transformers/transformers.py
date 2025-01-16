@@ -81,13 +81,6 @@ class TransformerEncoderLayer(Module):
             key_lengths=length_mask,
             **(attn_kwargs or {})
         )
-        # x, save_objs = self.attention(
-        #     x, x, x,
-        #     attn_mask=attn_mask,
-        #     query_lengths=length_mask,
-        #     key_lengths=length_mask,
-        #     **(attn_kwargs or {})
-        # )
         x = x + self.dropout(x)
 
         # Run the fully connected part of the layer
@@ -96,8 +89,6 @@ class TransformerEncoderLayer(Module):
         y = self.dropout(self.linear2(y))
 
         return self.norm2(x+y)
-        # return self.norm2(x+y), save_objs
-
 
 class TransformerEncoder(Module):
     """TransformerEncoder is little more than a sequence of transformer encoder

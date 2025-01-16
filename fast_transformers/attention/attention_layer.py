@@ -113,6 +113,13 @@ class AttentionLayer(Module):
         keys = self.key_projection(keys).view(N, S, H, -1)
         values = self.value_projection(values).view(N, S, H, -1)
 
+        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+        save_objects = {
+            "queries": queries.clone().detach().cpu().numpy(),
+            "keys": keys.clone().detach().cpu().numpy()
+        }
+        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
         if cache is not None and cache[self]:
             # Apply positional encoding to new positions
             if self.positional_encoder:
@@ -148,15 +155,6 @@ class AttentionLayer(Module):
             key_lengths,
             **kwargs
         )
-        # new_values, save_objs = self.inner_attention(
-        #     queries,
-        #     keys,
-        #     values,
-        #     attn_mask,
-        #     query_lengths,
-        #     key_lengths,
-        #     **kwargs
-        # )
         new_values = new_values.view(N, L, -1)
 
         # Project the output
@@ -171,5 +169,7 @@ class AttentionLayer(Module):
             for name in ['keys', 'values', 'outputs']:
                 cache[self][name] = locals()[name]
 
-        return outputs
-        # return outputs, save_objs
+        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+        # return outputs
+        return outputs, save_objects
+        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
