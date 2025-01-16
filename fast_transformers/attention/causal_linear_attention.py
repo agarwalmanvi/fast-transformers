@@ -127,6 +127,7 @@ class CausalLinearAttention(Module):
         )
 
         return V * Z[:, :, :, None]
+        # return V * Z[:, :, :, None], (queries, keys, Q, K)
 
 
 # Register the attention implementation so that it becomes available in our

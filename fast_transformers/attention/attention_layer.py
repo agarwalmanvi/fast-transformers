@@ -147,7 +147,17 @@ class AttentionLayer(Module):
             query_lengths,
             key_lengths,
             **kwargs
-        ).view(N, L, -1)
+        )
+        # new_values, save_objs = self.inner_attention(
+        #     queries,
+        #     keys,
+        #     values,
+        #     attn_mask,
+        #     query_lengths,
+        #     key_lengths,
+        #     **kwargs
+        # )
+        new_values = new_values.view(N, L, -1)
 
         # Project the output
         outputs = self.out_projection(new_values)
@@ -162,3 +172,4 @@ class AttentionLayer(Module):
                 cache[self][name] = locals()[name]
 
         return outputs
+        # return outputs, save_objs
