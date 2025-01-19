@@ -114,10 +114,10 @@ class AttentionLayer(Module):
         values = self.value_projection(values).view(N, S, H, -1)
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-        save_objects = {
-            "queries": queries.clone().detach().cpu().numpy(),
-            "keys": keys.clone().detach().cpu().numpy()
-        }
+        # save_objects = {
+        #     "queries": queries.clone().detach().cpu().numpy(),
+        #     "keys": keys.clone().detach().cpu().numpy()
+        # }
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
         if cache is not None and cache[self]:
@@ -170,6 +170,6 @@ class AttentionLayer(Module):
                 cache[self][name] = locals()[name]
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-        # return outputs
-        return outputs, save_objects
+        return outputs
+        # return outputs, save_objects
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
