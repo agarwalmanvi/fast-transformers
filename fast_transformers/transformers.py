@@ -74,22 +74,22 @@ class TransformerEncoderLayer(Module):
             LengthMask(x.new_full((N,), L, dtype=torch.int64))
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-        # Run self attention and add it to the input
-        x = self.attention(
-            x, x, x,
-            attn_mask=attn_mask,
-            query_lengths=length_mask,
-            key_lengths=length_mask,
-            **(attn_kwargs or {})
-        )
-
-        # x, save_objects = self.attention(
+        # # Run self attention and add it to the input
+        # x = self.attention(
         #     x, x, x,
         #     attn_mask=attn_mask,
         #     query_lengths=length_mask,
         #     key_lengths=length_mask,
         #     **(attn_kwargs or {})
         # )
+
+        x, save_objects = self.attention(
+            x, x, x,
+            attn_mask=attn_mask,
+            query_lengths=length_mask,
+            key_lengths=length_mask,
+            **(attn_kwargs or {})
+        )
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
         x = x + self.dropout(x)
