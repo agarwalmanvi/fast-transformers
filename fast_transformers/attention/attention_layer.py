@@ -115,8 +115,8 @@ class AttentionLayer(Module):
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
         save_objects = {
-            "queries": torch.norm(queries).clone().detach().cpu().numpy(),
-            "keys": torch.norm(keys).clone().detach().cpu().numpy()
+            "queries": torch.norm(queries, dim=[1]).clone().detach().cpu().numpy(),
+            "keys": torch.norm(keys, dim=[1]).clone().detach().cpu().numpy()
         }
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
