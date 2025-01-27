@@ -100,8 +100,8 @@ class TransformerEncoderLayer(Module):
         y = self.dropout(self.linear2(y))
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-        return self.norm2(x+y)
-        # return self.norm2(x + y), save_objects
+        # return self.norm2(x+y)
+        return self.norm2(x + y), save_objects
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 class TransformerEncoder(Module):
