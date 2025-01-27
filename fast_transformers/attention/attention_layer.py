@@ -137,6 +137,7 @@ class AttentionLayer(Module):
                 query_lengths.lengths - Lc,
                 device=query_lengths.lengths.device)
         else:
+
             # Apply positional encoding
             if self.positional_encoder:
                 queries, keys = self.positional_encoder(
