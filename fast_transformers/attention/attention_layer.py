@@ -113,12 +113,12 @@ class AttentionLayer(Module):
         keys = self.key_projection(keys).view(N, S, H, -1)
         values = self.value_projection(values).view(N, S, H, -1)
 
-        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-        # save_objects = {
-        #     "queries": queries.clone().detach().cpu().numpy(),
-        #     "keys": keys.clone().detach().cpu().numpy()
-        # }
-        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+        save_objects = {
+            "queries": torch.norm(queries).clone().detach().cpu().numpy(),
+            "keys": torch.norm(keys).clone().detach().cpu().numpy()
+        }
+        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
         if cache is not None and cache[self]:
             # Apply positional encoding to new positions
@@ -170,6 +170,6 @@ class AttentionLayer(Module):
                 cache[self][name] = locals()[name]
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-        return outputs
-        # return outputs, save_objects
+        # return outputs
+        return outputs, save_objects
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
