@@ -114,22 +114,22 @@ class AttentionLayer(Module):
         values = self.value_projection(values).view(N, S, H, -1)
 
         # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+        # if RoPE is used, we need 2D chunks, otherwise we just take the norm as is over all dimensions
+        if self.positional_encoder:
+            # check if rope is being used
+            keys_pos_code = list(pos_code.keys())
+            # if RoPE is being used
+            if "qhat" not in keys_pos_code:
+                q_ = queries.clone().detach().view(N, L, H, -1, 2)
+                k_ = keys.clone().detach().view(N, L, H, -1, 2)
+                norm_queries = torch.norm(q_, dim=[1, -1]).clone().detach().cpu().numpy()
+                norm_keys = torch.norm(k_, dim=[1, -1]).clone().detach().cpu().numpy()
+            else:
+                norm_queries = torch.norm(queries, dim=[1]).clone().detach().cpu().numpy()
+                norm_keys = torch.norm(keys, dim=[1]).clone().detach().cpu().numpy()
 
-        # if self.positional_encoder:
-        #     # check if rope is being used
-        #     keys_pos_code = list(pos_code.keys())
-        #     # if RoPE is being used
-        #     if "qhat" not in keys_pos_code:
-        #         q_ = queries.clone().detach().view(N, L, H, -1, 2)
-        #         k_ = keys.clone().detach().view(N, L, H, -1, 2)
-        #         norm_queries = torch.norm(q_, dim=[1, -1]).clone().detach().cpu().numpy()
-        #         norm_keys = torch.norm(k_, dim=[1, -1]).clone().detach().cpu().numpy()
-        #     else:
-        #         norm_queries = torch.norm(queries, dim=[1]).clone().detach().cpu().numpy()
-        #         norm_keys = torch.norm(keys, dim=[1]).clone().detach().cpu().numpy()
-
-        norm_queries = torch.norm(queries, dim=[1]).clone().detach().cpu().numpy()
-        norm_keys = torch.norm(keys, dim=[1]).clone().detach().cpu().numpy()
+        # norm_queries = torch.norm(queries, dim=[1]).clone().detach().cpu().numpy()
+        # norm_keys = torch.norm(keys, dim=[1]).clone().detach().cpu().numpy()
         save_objects = {
             "queries": norm_queries,
             "keys": norm_keys
